@@ -1,7 +1,10 @@
-import { Link, useLocation } from 'react-router-dom';
+"use client";
+
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useWallet } from '@/contexts/WalletContext';
-import { Wallet, LogOut, Menu, X, Shield } from 'lucide-react';
+import { Wallet, LogOut, Menu, X } from 'lucide-react';
 import logo from '@/assets/logo.png';
 import { useState } from 'react';
 
@@ -15,7 +18,7 @@ const navLinks = [
 
 export const Header = () => {
   const { isConnected, address, connect, disconnect } = useWallet();
-  const location = useLocation();
+  const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const truncateAddress = (addr: string) => {
@@ -26,10 +29,10 @@ export const Header = () => {
     <header className="fixed top-0 left-0 right-0 z-50 glass-strong border-b border-border/50">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          <Link to="/" className="flex items-center gap-3 group">
+          <Link href="/" className="flex items-center gap-3 group">
             <div className="relative">
               <div className="absolute inset-0 blur-md bg-primary/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-full" />
-              <img src={logo} alt="ScrapeSafe" className="h-9 w-auto relative" />
+              <img src={logo.src} alt="ScrapeSafe" className="h-9 w-auto relative" />
             </div>
             <span className="font-display font-bold text-lg hidden sm:block">
               ScrapeSafe<span className="text-primary">IP</span>
@@ -41,12 +44,11 @@ export const Header = () => {
             {navLinks.map((link) => (
               <Link
                 key={link.href}
-                to={link.href}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  location.pathname === link.href
-                    ? 'text-primary bg-primary/10'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
-                }`}
+                href={link.href}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${pathname === link.href
+                  ? 'text-primary bg-primary/10'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                  }`}
               >
                 {link.label}
               </Link>
@@ -95,13 +97,12 @@ export const Header = () => {
               {navLinks.map((link) => (
                 <Link
                   key={link.href}
-                  to={link.href}
+                  href={link.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-                    location.pathname === link.href
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-muted-foreground hover:bg-secondary'
-                  }`}
+                  className={`px-4 py-3 rounded-lg text-sm font-medium transition-colors ${pathname === link.href
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:bg-secondary'
+                    }`}
                 >
                   {link.label}
                 </Link>

@@ -1,0 +1,7 @@
+{
+  "/page": "app/page.js",
+  "/market/page": "app/market/page.js",
+  "/bot/page": "app/bot/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/my-licenses/page": "app/my-licenses/page.js"
+}
