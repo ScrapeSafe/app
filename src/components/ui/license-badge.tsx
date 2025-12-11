@@ -12,19 +12,24 @@ export const LicenseBadge = ({ type, enabled = true }: LicenseBadgeProps) => {
     scrape: {
       label: 'Scrape',
       icon: Bot,
-      className: enabled ? 'bg-primary/20 text-primary border-primary/30' : 'bg-muted text-muted-foreground',
+      enabledClass: 'bg-primary/20 text-primary border-primary/40 shadow-[0_0_10px_hsl(var(--primary)/0.3)]',
+      disabledClass: 'bg-muted/50 text-muted-foreground border-border',
     },
     train: {
       label: 'Train',
       icon: Brain,
-      className: enabled ? 'bg-purple-500/20 text-purple-400 border-purple-500/30' : 'bg-muted text-muted-foreground',
+      enabledClass: 'bg-accent/20 text-accent border-accent/40 shadow-[0_0_10px_hsl(var(--accent)/0.3)]',
+      disabledClass: 'bg-muted/50 text-muted-foreground border-border',
     },
   };
 
-  const { label, icon: Icon, className } = config[type];
+  const { label, icon: Icon, enabledClass, disabledClass } = config[type];
 
   return (
-    <Badge variant="outline" className={`gap-1 ${className}`}>
+    <Badge 
+      variant="outline" 
+      className={`gap-1.5 font-mono text-xs px-3 py-1 ${enabled ? enabledClass : disabledClass}`}
+    >
       <Icon className="h-3 w-3" />
       {label}
     </Badge>
