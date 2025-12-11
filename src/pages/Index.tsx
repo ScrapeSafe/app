@@ -17,16 +17,6 @@ const Index = () => {
         
         <div className="container mx-auto px-4 py-24 relative z-10">
           <div className="max-w-5xl mx-auto text-center">
-            <div className="flex justify-center mb-8">
-              <div className="relative">
-                <div className="absolute inset-0 blur-3xl bg-primary/30 animate-pulse-glow rounded-full" />
-                <img 
-                  src={logo} 
-                  alt="ScrapeSafe IP" 
-                  className="h-28 w-auto relative z-10 animate-float drop-shadow-2xl"
-                />
-              </div>
-            </div>
             
             <div className="mb-4">
               <span className="inline-block px-4 py-1.5 rounded-full bg-primary/10 border border-primary/30 text-primary text-sm font-medium mb-6">
