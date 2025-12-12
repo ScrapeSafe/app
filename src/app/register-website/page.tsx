@@ -141,6 +141,19 @@ const RegisterWebsite = () => {
             return;
         }
 
+        // Check if domain is already registered as IP asset in local storage
+        const existingIPAsset = storage.getIPAssetByDomain(domain);
+        if (existingIPAsset) {
+            if (existingIPAsset.ownerAddress.toLowerCase() === address.toLowerCase()) {
+                toast.info('This domain is already registered as an IP asset.');
+                router.push('/dashboard');
+                return;
+            } else {
+                toast.error('This domain is already registered by another wallet.');
+                return;
+            }
+        }
+
         setLoading(true);
         try {
             const backendUrl = getBackendUrl();
@@ -163,6 +176,33 @@ const RegisterWebsite = () => {
             const data = await response.json();
             setSiteId(data.siteId);
             setVerificationToken(data.verificationToken);
+            
+            // Check if domain is already registered in backend and verified
+            // Try to get registration status from backend
+            try {
+                const statusResponse = await fetch(`${backendUrl}/api/owner/register?siteId=${data.siteId}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+
+                if (statusResponse.ok) {
+                    const statusData = await statusResponse.json();
+                    // If domain is already verified and wallet matches, skip to register step
+                    if (statusData.verified && 
+                        statusData.ownerWallet?.toLowerCase() === address.toLowerCase()) {
+                        setVerified(true);
+                        setStep('register');
+                        toast.success('Domain already verified! You can now register it as an IP asset.');
+                        setLoading(false);
+                        return;
+                    }
+                }
+            } catch (statusError) {
+                // If status check fails, continue with normal flow
+                // This is fine - the backend might not have a GET endpoint
+            }
             
             // Parse backend response format to our UI format
             const verificationMethods = parseBackendResponse(data);
