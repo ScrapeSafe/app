@@ -1,4 +1,4 @@
-// File: /Users/madhav/Desktop/projects/ScrapeSafe/app/src/app/dashboard/page.tsx
+// File: /home/sam/Projects/app/src/app/dashboard/page.tsx
 import * as entry from '../../../../src/app/dashboard/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

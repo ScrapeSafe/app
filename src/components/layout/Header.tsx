@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useWallet } from '@/contexts/WalletContext';
+import { usePrivy } from '@privy-io/react-auth';
 import { Wallet, LogOut, Menu, X } from 'lucide-react';
 import logo from '@/assets/logo.png';
 import { useState } from 'react';
@@ -18,11 +19,22 @@ const navLinks = [
 
 export const Header = () => {
   const { isConnected, address, connect, disconnect } = useWallet();
+  const { ready, login, logout } = usePrivy();
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const truncateAddress = (addr: string) => {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  };
+
+  const handleConnect = async () => {
+    if (ready) {
+      await connect();
+    }
+  };
+
+  const handleDisconnect = async () => {
+    await disconnect();
   };
 
   return (
@@ -56,25 +68,29 @@ export const Header = () => {
           </nav>
 
           <div className="flex items-center gap-3">
-            {isConnected ? (
+            {isConnected && address ? (
               <div className="flex items-center gap-2">
                 <div className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg bg-surface border border-border">
                   <div className="w-2 h-2 rounded-full bg-neon-green animate-pulse shadow-[0_0_10px_hsl(150_100%_45%)]" />
-                  <span className="font-mono text-sm text-foreground">{truncateAddress(address!)}</span>
+                  <span className="font-mono text-sm text-foreground">{truncateAddress(address)}</span>
                 </div>
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={disconnect}
+                  onClick={handleDisconnect}
                   className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                 >
                   <LogOut className="h-4 w-4" />
                 </Button>
               </div>
             ) : (
-              <Button onClick={connect} className="glow-cyan font-semibold">
+              <Button 
+                onClick={handleConnect} 
+                className="glow-cyan font-semibold"
+                disabled={!ready}
+              >
                 <Wallet className="h-4 w-4 mr-2" />
-                Connect
+                {ready ? 'Connect' : 'Loading...'}
               </Button>
             )}
 
