@@ -22,6 +22,19 @@ const domainSchema = z.string().min(1, 'Domain is required').regex(
     'Please enter a valid domain (e.g., example.com)'
 );
 
+interface BackendInstructions {
+    dns: string;
+    meta: string;
+    file: string;
+    fileTemplate?: {
+        domain: string;
+        owner: string;
+        token: string;
+        timestamp: string;
+    };
+    fileInstructions?: string;
+}
+
 interface VerificationMethods {
     dns: {
         record: string;
@@ -66,6 +79,53 @@ const RegisterWebsite = () => {
         toast.success('Copied to clipboard');
     };
 
+    const getBackendUrl = () => {
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || '';
+        if (!backendUrl) {
+            throw new Error('NEXT_PUBLIC_BACKEND_URL is not configured. Please set it in your .env file.');
+        }
+        return backendUrl.replace(/\/$/, ''); // Remove trailing slash
+    };
+
+    const parseBackendResponse = (data: { siteId: number; verificationToken: string; instructions: BackendInstructions }): VerificationMethods => {
+        // Extract DNS record info from instructions string
+        // Format: "Add a TXT record at _scrapesafe.{domain} with value: {token}"
+        const dnsMatch = data.instructions.dns.match(/at\s+([^\s]+)\s+with\s+value:\s+(.+)/);
+        const dnsRecord = dnsMatch ? dnsMatch[1] : `_scrapesafe.${domain}`;
+        const dnsValue = dnsMatch ? dnsMatch[2].trim() : data.verificationToken;
+
+        // Extract meta tag from instructions string
+        // Format: "Add to your HTML <head>: <meta name=\"scrapesafe\" content=\"{token}\">"
+        const metaMatch = data.instructions.meta.match(/<meta[^>]+>/);
+        const metaTag = metaMatch ? metaMatch[0] : `<meta name="scrapesafe" content="${data.verificationToken}">`;
+
+        // Extract file path from instructions string
+        // Format: "Place a signed JSON file at https://{domain}/.well-known/scrapesafe.json"
+        const filePath = '/.well-known/scrapesafe.json';
+        const fileContent = data.instructions.fileTemplate 
+            ? JSON.stringify(data.instructions.fileTemplate, null, 2)
+            : JSON.stringify({ verification: data.verificationToken }, null, 2);
+
+        return {
+            dns: {
+                record: dnsRecord,
+                type: 'TXT',
+                value: dnsValue,
+                instructions: data.instructions.dns
+            },
+            metaTag: {
+                tag: metaTag,
+                location: 'HTML <head> section',
+                instructions: data.instructions.meta
+            },
+            file: {
+                path: filePath,
+                content: fileContent,
+                instructions: data.instructions.fileInstructions || data.instructions.file
+            }
+        };
+    };
+
     const handleRegisterDomain = async () => {
         try {
             domainSchema.parse(domain);
@@ -83,7 +143,8 @@ const RegisterWebsite = () => {
 
         setLoading(true);
         try {
-            const response = await fetch('/api/owner/register', {
+            const backendUrl = getBackendUrl();
+            const response = await fetch(`${backendUrl}/api/owner/register`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -102,7 +163,10 @@ const RegisterWebsite = () => {
             const data = await response.json();
             setSiteId(data.siteId);
             setVerificationToken(data.verificationToken);
-            setVerificationMethods(data.verificationMethods);
+            
+            // Parse backend response format to our UI format
+            const verificationMethods = parseBackendResponse(data);
+            setVerificationMethods(verificationMethods);
             setStep('verify');
             toast.success('Domain registered! Please verify ownership.');
         } catch (error: any) {
@@ -120,19 +184,28 @@ const RegisterWebsite = () => {
 
         setVerifying(true);
         try {
-            const response = await fetch('/api/owner/verify', {
+            const backendUrl = getBackendUrl();
+            // Map UI method names to backend method names
+            const methodMap: Record<string, string> = {
+                'dns': 'dns',
+                'metaTag': 'meta',
+                'file': 'file'
+            };
+            const backendMethod = methodMap[selectedMethod] || selectedMethod;
+
+            const response = await fetch(`${backendUrl}/api/owner/verify`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
                     siteId,
-                    method: selectedMethod,
+                    method: backendMethod,
                 }),
             });
 
             const data = await response.json();
-
+            
             if (data.ok) {
                 setVerified(true);
                 setStep('register');
@@ -141,7 +214,7 @@ const RegisterWebsite = () => {
                 toast.error(data.error || 'Verification failed. Please check your configuration and try again.');
             }
         } catch (error: any) {
-            toast.error('Verification failed. Please try again.');
+            toast.error(error.message || 'Verification failed. Please try again.');
         } finally {
             setVerifying(false);
         }

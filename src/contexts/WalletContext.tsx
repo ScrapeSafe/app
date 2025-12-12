@@ -17,7 +17,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   // Get the primary wallet address
   const walletAddress = wallets.length > 0 ? wallets[0].address : null;
   const isConnected = authenticated && ready && walletAddress !== null;
-
+useWallet
   const connect = async () => {
     try {
       await login();

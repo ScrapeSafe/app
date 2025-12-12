@@ -32,9 +32,22 @@ cd <YOUR_PROJECT_NAME>
 # Step 3: Install the necessary dependencies.
 npm i
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Step 4: Set up environment variables (optional)
+# Copy .env.example to .env and fill in your values
+cp .env.example .env
+
+# Step 5: Start the development server with auto-reloading and an instant preview.
 npm run dev
 ```
+
+## Environment Variables
+
+Create a `.env` file in the root directory (you can copy from `.env.example`):
+
+- `NEXT_PUBLIC_BACKEND_URL` (required): The URL of your backend API server. The frontend will fetch directly from this server. Example: `http://localhost:3000` or `https://api.example.com`
+- `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: Your Supabase anon/public key
+- `NEXT_PUBLIC_PRIVY_APP_ID`: Your Privy app ID
 
 **Edit a file directly in GitHub**
 
