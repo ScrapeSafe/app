@@ -303,6 +303,64 @@ const RegisterWebsite = () => {
         }
     };
 
+    // DEV TEST: Directly test Story Protocol minting without domain verification
+    const handleTestStoryMint = async () => {
+        if (!domain.trim()) {
+            toast.error('Please enter a domain first');
+            return;
+        }
+        if (!address) {
+            toast.error('Wallet not connected');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const backendUrl = getBackendUrl();
+
+            // Step 1: Register the domain first
+            const registerResponse = await fetch(`${backendUrl}/api/owner/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ domain, ownerWallet: address }),
+            });
+
+            const registerData = await registerResponse.json();
+
+            // Get siteId from response (works for both new and existing sites)
+            const testSiteId = registerData.siteId;
+            if (!testSiteId) {
+                throw new Error(registerData.error || 'Failed to get site ID');
+            }
+
+            toast.info(`Site ID: ${testSiteId}. Now minting Story IP (bypassing verification)...`);
+
+            // Step 2: Use the test-mint endpoint to bypass verification
+            const mintResponse = await fetch(`${backendUrl}/api/owner/test-mint`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ siteId: testSiteId }),
+            });
+
+            const mintData = await mintResponse.json();
+
+            if (mintData.ok && mintData.storyIpId) {
+                setStoryIpId(mintData.storyIpId);
+                setIsSimulated(mintData.storySimulated || false);
+                setVerified(true);
+                setSiteId(testSiteId);
+                setStep('register');
+                toast.success(`Story IP minted! ID: ${mintData.storyIpId}${mintData.storySimulated ? ' (Simulated)' : ''}`);
+            } else {
+                toast.error(mintData.error || 'Story minting failed');
+            }
+        } catch (error: any) {
+            toast.error(error.message || 'Test failed');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     if (!isConnected) {
         return (
             <Layout>
@@ -395,6 +453,20 @@ const RegisterWebsite = () => {
                                         {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                                         Register Domain & Get Verification Token
                                     </Button>
+
+                                    {/* DEV TEST BUTTON - Remove in production */}
+                                    <div className="pt-4 border-t border-dashed border-yellow-500/30">
+                                        <p className="text-xs text-yellow-500 mb-2 font-mono">⚠️ DEV TEST MODE</p>
+                                        <Button
+                                            onClick={handleTestStoryMint}
+                                            disabled={loading || !domain.trim()}
+                                            variant="outline"
+                                            className="w-full border-yellow-500/50 text-yellow-500 hover:bg-yellow-500/10"
+                                        >
+                                            {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                                            🧪 Test Story Mint (Skip Verification)
+                                        </Button>
+                                    </div>
                                 </div>
                             )}
 
