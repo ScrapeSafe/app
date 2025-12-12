@@ -8,12 +8,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useWallet } from '@/contexts/WalletContext';
 import { storage } from '@/lib/storage';
 import { mockUploadToIPFS } from '@/lib/mock-ipfs';
 import { mockRegisterIP } from '@/lib/mock-web3';
 import { toast } from 'sonner';
-import { Globe, Copy, Check, Loader2, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { Globe, Copy, Check, Loader2, ArrowLeft, CheckCircle2, RefreshCw, Server, FileText, Code } from 'lucide-react';
 import { z } from 'zod';
 
 const domainSchema = z.string().min(1, 'Domain is required').regex(
@@ -21,29 +22,51 @@ const domainSchema = z.string().min(1, 'Domain is required').regex(
     'Please enter a valid domain (e.g., example.com)'
 );
 
+interface VerificationMethods {
+    dns: {
+        record: string;
+        type: string;
+        value: string;
+        instructions: string;
+    };
+    metaTag: {
+        tag: string;
+        location: string;
+        instructions: string;
+    };
+    file: {
+        path: string;
+        content: string;
+        instructions: string;
+    };
+}
+
 const RegisterWebsite = () => {
     const router = useRouter();
     const { isConnected, address, connect } = useWallet();
     const [step, setStep] = useState<'form' | 'verify' | 'register' | 'complete'>('form');
     const [loading, setLoading] = useState(false);
-    const [copied, setCopied] = useState(false);
+    const [verifying, setVerifying] = useState(false);
+    const [copied, setCopied] = useState<string | null>(null);
 
     const [domain, setDomain] = useState('');
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [verified, setVerified] = useState(false);
     const [registeredIpId, setRegisteredIpId] = useState('');
+    const [siteId, setSiteId] = useState<number | null>(null);
+    const [verificationToken, setVerificationToken] = useState('');
+    const [verificationMethods, setVerificationMethods] = useState<VerificationMethods | null>(null);
+    const [selectedMethod, setSelectedMethod] = useState<'dns' | 'metaTag' | 'file'>('dns');
 
-    const metaTag = `<meta name="scrapesafe-verification" content="${address}" />`;
-
-    const handleCopyMetaTag = () => {
-        navigator.clipboard.writeText(metaTag);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-        toast.success('Meta tag copied to clipboard');
+    const handleCopy = (text: string, type: string) => {
+        navigator.clipboard.writeText(text);
+        setCopied(type);
+        setTimeout(() => setCopied(null), 2000);
+        toast.success('Copied to clipboard');
     };
 
-    const handleVerify = async () => {
+    const handleRegisterDomain = async () => {
         try {
             domainSchema.parse(domain);
         } catch (error) {
@@ -53,25 +76,74 @@ const RegisterWebsite = () => {
             }
         }
 
+        if (!address) {
+            toast.error('Wallet not connected');
+            return;
+        }
+
         setLoading(true);
         try {
-            // Mock verification - in production, call backend API
-            await new Promise((resolve) => setTimeout(resolve, 1500));
+            const response = await fetch('/api/owner/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    domain,
+                    ownerWallet: address,
+                }),
+            });
 
-            // Simulate random verification result for demo
-            const isVerified = Math.random() > 0.3;
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Registration failed');
+            }
 
-            if (isVerified) {
+            const data = await response.json();
+            setSiteId(data.siteId);
+            setVerificationToken(data.verificationToken);
+            setVerificationMethods(data.verificationMethods);
+            setStep('verify');
+            toast.success('Domain registered! Please verify ownership.');
+        } catch (error: any) {
+            toast.error(error.message || 'Registration failed. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleVerify = async () => {
+        if (!siteId) {
+            toast.error('Site ID not found. Please register the domain first.');
+            return;
+        }
+
+        setVerifying(true);
+        try {
+            const response = await fetch('/api/owner/verify', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    siteId,
+                    method: selectedMethod,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (data.ok) {
                 setVerified(true);
                 setStep('register');
                 toast.success('Domain ownership verified!');
             } else {
-                toast.error('Verification failed. Please ensure the meta tag is correctly placed in your HTML head.');
+                toast.error(data.error || 'Verification failed. Please check your configuration and try again.');
             }
-        } catch (error) {
+        } catch (error: any) {
             toast.error('Verification failed. Please try again.');
         } finally {
-            setLoading(false);
+            setVerifying(false);
         }
     };
 
@@ -152,7 +224,7 @@ const RegisterWebsite = () => {
                     Back to Dashboard
                 </Button>
 
-                <div className="max-w-2xl mx-auto">
+                <div className="max-w-3xl mx-auto">
                     <Card>
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
@@ -173,7 +245,15 @@ const RegisterWebsite = () => {
                                             value={domain}
                                             onChange={(e) => setDomain(e.target.value)}
                                             placeholder="example.com"
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    handleRegisterDomain();
+                                                }
+                                            }}
                                         />
+                                        <p className="text-xs text-muted-foreground">
+                                            Enter your domain without http:// or https://
+                                        </p>
                                     </div>
 
                                     <div className="space-y-2">
@@ -197,52 +277,235 @@ const RegisterWebsite = () => {
                                         />
                                     </div>
 
-                                    <Button onClick={() => setStep('verify')} className="w-full">
-                                        Continue to Verification
+                                    <Button 
+                                        onClick={handleRegisterDomain} 
+                                        disabled={loading || !domain.trim()}
+                                        className="w-full"
+                                    >
+                                        {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                                        Register Domain & Get Verification Token
                                     </Button>
                                 </div>
                             )}
 
-                            {step === 'verify' && (
+                            {step === 'verify' && verificationMethods && (
                                 <div className="space-y-6">
-                                    <div className="p-4 rounded-lg bg-secondary border border-border">
-                                        <h3 className="font-semibold mb-2">Step 1: Add Meta Tag</h3>
-                                        <p className="text-sm text-muted-foreground mb-4">
-                                            Add the following meta tag to the <code className="text-primary">&lt;head&gt;</code> section of your website:
+                                    <div className="p-4 rounded-lg bg-primary/10 border border-primary/30">
+                                        <h3 className="font-semibold mb-2 flex items-center gap-2">
+                                            <CheckCircle2 className="h-5 w-5 text-primary" />
+                                            Domain Registered
+                                        </h3>
+                                        <p className="text-sm text-muted-foreground">
+                                            Your domain <strong>{domain}</strong> has been registered. 
+                                            Please verify ownership using one of the methods below.
                                         </p>
-                                        <div className="relative">
-                                            <pre className="p-3 rounded bg-background border border-border overflow-x-auto text-xs font-mono">
-                                                {metaTag}
-                                            </pre>
-                                            <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                className="absolute top-2 right-2"
-                                                onClick={handleCopyMetaTag}
-                                            >
-                                                {copied ? (
-                                                    <Check className="h-4 w-4 text-primary" />
-                                                ) : (
-                                                    <Copy className="h-4 w-4" />
-                                                )}
-                                            </Button>
-                                        </div>
                                     </div>
 
-                                    <div className="p-4 rounded-lg bg-secondary border border-border">
-                                        <h3 className="font-semibold mb-2">Step 2: Verify Ownership</h3>
-                                        <p className="text-sm text-muted-foreground mb-4">
-                                            After adding the meta tag, click below to verify your ownership.
-                                        </p>
-                                        <Button onClick={handleVerify} disabled={loading} className="w-full">
-                                            {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                                            Verify Ownership
+                                    <Tabs value={selectedMethod} onValueChange={(v) => setSelectedMethod(v as 'dns' | 'metaTag' | 'file')}>
+                                        <TabsList className="grid w-full grid-cols-3">
+                                            <TabsTrigger value="dns" className="flex items-center gap-2">
+                                                <Server className="h-4 w-4" />
+                                                DNS
+                                            </TabsTrigger>
+                                            <TabsTrigger value="metaTag" className="flex items-center gap-2">
+                                                <Code className="h-4 w-4" />
+                                                Meta Tag
+                                            </TabsTrigger>
+                                            <TabsTrigger value="file" className="flex items-center gap-2">
+                                                <FileText className="h-4 w-4" />
+                                                File
+                                            </TabsTrigger>
+                                        </TabsList>
+
+                                        <TabsContent value="dns" className="space-y-4">
+                                            <div className="p-4 rounded-lg bg-secondary border border-border">
+                                                <h3 className="font-semibold mb-2">DNS TXT Record Verification</h3>
+                                                <p className="text-sm text-muted-foreground mb-4">
+                                                    Add a TXT record to your domain's DNS settings to verify ownership.
+                                                </p>
+                                                
+                                                <div className="space-y-3">
+                                                    <div>
+                                                        <Label className="text-xs text-muted-foreground">Record Name</Label>
+                                                        <div className="relative mt-1">
+                                                            <pre className="p-3 rounded bg-background border border-border overflow-x-auto text-xs font-mono">
+                                                                {verificationMethods.dns.record}
+                                                            </pre>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                className="absolute top-2 right-2"
+                                                                onClick={() => handleCopy(verificationMethods.dns.record, 'dns-record')}
+                                                            >
+                                                                {copied === 'dns-record' ? (
+                                                                    <Check className="h-4 w-4 text-primary" />
+                                                                ) : (
+                                                                    <Copy className="h-4 w-4" />
+                                                                )}
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+
+                                                    <div>
+                                                        <Label className="text-xs text-muted-foreground">Record Type</Label>
+                                                        <Input value={verificationMethods.dns.type} readOnly className="mt-1 font-mono" />
+                                                    </div>
+
+                                                    <div>
+                                                        <Label className="text-xs text-muted-foreground">Record Value</Label>
+                                                        <div className="relative mt-1">
+                                                            <pre className="p-3 rounded bg-background border border-border overflow-x-auto text-xs font-mono break-all">
+                                                                {verificationMethods.dns.value}
+                                                            </pre>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                className="absolute top-2 right-2"
+                                                                onClick={() => handleCopy(verificationMethods.dns.value, 'dns-value')}
+                                                            >
+                                                                {copied === 'dns-value' ? (
+                                                                    <Check className="h-4 w-4 text-primary" />
+                                                                ) : (
+                                                                    <Copy className="h-4 w-4" />
+                                                                )}
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="mt-4 p-3 rounded bg-muted/50 border border-border">
+                                                    <p className="text-xs text-muted-foreground">
+                                                        <strong>Instructions:</strong> {verificationMethods.dns.instructions}
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground mt-2">
+                                                        After adding the DNS record, wait a few minutes for propagation, then click Verify below.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </TabsContent>
+
+                                        <TabsContent value="metaTag" className="space-y-4">
+                                            <div className="p-4 rounded-lg bg-secondary border border-border">
+                                                <h3 className="font-semibold mb-2">Meta Tag Verification</h3>
+                                                <p className="text-sm text-muted-foreground mb-4">
+                                                    Add this meta tag to your website's HTML <code className="text-primary">&lt;head&gt;</code> section.
+                                                </p>
+                                                
+                                                <div className="relative">
+                                                    <pre className="p-3 rounded bg-background border border-border overflow-x-auto text-xs font-mono">
+                                                        {verificationMethods.metaTag.tag}
+                                                    </pre>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        className="absolute top-2 right-2"
+                                                        onClick={() => handleCopy(verificationMethods.metaTag.tag, 'meta-tag')}
+                                                    >
+                                                        {copied === 'meta-tag' ? (
+                                                            <Check className="h-4 w-4 text-primary" />
+                                                        ) : (
+                                                            <Copy className="h-4 w-4" />
+                                                        )}
+                                                    </Button>
+                                                </div>
+
+                                                <div className="mt-4 p-3 rounded bg-muted/50 border border-border">
+                                                    <p className="text-xs text-muted-foreground">
+                                                        <strong>Location:</strong> {verificationMethods.metaTag.location}
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground mt-2">
+                                                        {verificationMethods.metaTag.instructions}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </TabsContent>
+
+                                        <TabsContent value="file" className="space-y-4">
+                                            <div className="p-4 rounded-lg bg-secondary border border-border">
+                                                <h3 className="font-semibold mb-2">File Verification</h3>
+                                                <p className="text-sm text-muted-foreground mb-4">
+                                                    Create a verification file at the specified path on your website.
+                                                </p>
+                                                
+                                                <div className="space-y-3">
+                                                    <div>
+                                                        <Label className="text-xs text-muted-foreground">File Path</Label>
+                                                        <div className="relative mt-1">
+                                                            <pre className="p-3 rounded bg-background border border-border overflow-x-auto text-xs font-mono">
+                                                                {verificationMethods.file.path}
+                                                            </pre>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                className="absolute top-2 right-2"
+                                                                onClick={() => handleCopy(verificationMethods.file.path, 'file-path')}
+                                                            >
+                                                                {copied === 'file-path' ? (
+                                                                    <Check className="h-4 w-4 text-primary" />
+                                                                ) : (
+                                                                    <Copy className="h-4 w-4" />
+                                                                )}
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+
+                                                    <div>
+                                                        <Label className="text-xs text-muted-foreground">File Content</Label>
+                                                        <div className="relative mt-1">
+                                                            <pre className="p-3 rounded bg-background border border-border overflow-x-auto text-xs font-mono">
+                                                                {verificationMethods.file.content}
+                                                            </pre>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                className="absolute top-2 right-2"
+                                                                onClick={() => handleCopy(verificationMethods.file.content, 'file-content')}
+                                                            >
+                                                                {copied === 'file-content' ? (
+                                                                    <Check className="h-4 w-4 text-primary" />
+                                                                ) : (
+                                                                    <Copy className="h-4 w-4" />
+                                                                )}
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="mt-4 p-3 rounded bg-muted/50 border border-border">
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {verificationMethods.file.instructions}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </TabsContent>
+                                    </Tabs>
+
+                                    <div className="flex gap-3">
+                                        <Button 
+                                            onClick={handleVerify} 
+                                            disabled={verifying} 
+                                            className="flex-1"
+                                        >
+                                            {verifying ? (
+                                                <>
+                                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                                    Verifying...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <RefreshCw className="h-4 w-4 mr-2" />
+                                                    Verify Ownership
+                                                </>
+                                            )}
+                                        </Button>
+                                        <Button 
+                                            variant="outline" 
+                                            onClick={() => setStep('form')} 
+                                            disabled={verifying}
+                                        >
+                                            Back
                                         </Button>
                                     </div>
-
-                                    <Button variant="outline" onClick={() => setStep('form')} className="w-full">
-                                        Back
-                                    </Button>
                                 </div>
                             )}
 
