@@ -13,11 +13,11 @@ const WalletContext = createContext<WalletContextType | undefined>(undefined);
 export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const { ready, authenticated, login, logout } = usePrivy();
   const { wallets } = useWallets();
-  
+
   // Get the primary wallet address
   const walletAddress = wallets.length > 0 ? wallets[0].address : null;
   const isConnected = authenticated && ready && walletAddress !== null;
-useWallet
+
   const connect = async () => {
     try {
       await login();
@@ -38,11 +38,11 @@ useWallet
   };
 
   return (
-    <WalletContext.Provider value={{ 
-      address: walletAddress, 
-      isConnected, 
-      connect, 
-      disconnect 
+    <WalletContext.Provider value={{
+      address: walletAddress,
+      isConnected,
+      connect,
+      disconnect
     }}>
       {children}
     </WalletContext.Provider>

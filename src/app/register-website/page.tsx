@@ -11,8 +11,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useWallet } from '@/contexts/WalletContext';
 import { storage } from '@/lib/storage';
-import { mockUploadToIPFS } from '@/lib/mock-ipfs';
-import { mockRegisterIP } from '@/lib/mock-web3';
 import { toast } from 'sonner';
 import { Globe, Copy, Check, Loader2, ArrowLeft, CheckCircle2, RefreshCw, Server, FileText, Code } from 'lucide-react';
 import { z } from 'zod';
@@ -67,6 +65,8 @@ const RegisterWebsite = () => {
     const [description, setDescription] = useState('');
     const [verified, setVerified] = useState(false);
     const [registeredIpId, setRegisteredIpId] = useState('');
+    const [storyIpId, setStoryIpId] = useState<string | null>(null);
+    const [isSimulated, setIsSimulated] = useState(false);
     const [siteId, setSiteId] = useState<number | null>(null);
     const [verificationToken, setVerificationToken] = useState('');
     const [verificationMethods, setVerificationMethods] = useState<VerificationMethods | null>(null);
@@ -102,7 +102,7 @@ const RegisterWebsite = () => {
         // Extract file path from instructions string
         // Format: "Place a signed JSON file at https://{domain}/.well-known/scrapesafe.json"
         const filePath = '/.well-known/scrapesafe.json';
-        const fileContent = data.instructions.fileTemplate 
+        const fileContent = data.instructions.fileTemplate
             ? JSON.stringify(data.instructions.fileTemplate, null, 2)
             : JSON.stringify({ verification: data.verificationToken }, null, 2);
 
@@ -176,7 +176,7 @@ const RegisterWebsite = () => {
             const data = await response.json();
             setSiteId(data.siteId);
             setVerificationToken(data.verificationToken);
-            
+
             // Check if domain is already registered in backend and verified
             // Try to get registration status from backend
             try {
@@ -190,7 +190,7 @@ const RegisterWebsite = () => {
                 if (statusResponse.ok) {
                     const statusData = await statusResponse.json();
                     // If domain is already verified and wallet matches, skip to register step
-                    if (statusData.verified && 
+                    if (statusData.verified &&
                         statusData.ownerWallet?.toLowerCase() === address.toLowerCase()) {
                         setVerified(true);
                         setStep('register');
@@ -203,7 +203,7 @@ const RegisterWebsite = () => {
                 // If status check fails, continue with normal flow
                 // This is fine - the backend might not have a GET endpoint
             }
-            
+
             // Parse backend response format to our UI format
             const verificationMethods = parseBackendResponse(data);
             setVerificationMethods(verificationMethods);
@@ -245,11 +245,16 @@ const RegisterWebsite = () => {
             });
 
             const data = await response.json();
-            
+
             if (data.ok) {
                 setVerified(true);
+                // Backend mints Story Protocol IP during verification
+                if (data.storyIpId) {
+                    setStoryIpId(data.storyIpId);
+                    setIsSimulated(data.storySimulated || false);
+                }
                 setStep('register');
-                toast.success('Domain ownership verified!');
+                toast.success('Domain ownership verified! IP registered on Story Protocol.');
             } else {
                 toast.error(data.error || 'Verification failed. Please check your configuration and try again.');
             }
@@ -266,39 +271,31 @@ const RegisterWebsite = () => {
             return;
         }
 
+        if (!storyIpId) {
+            toast.error('Story IP not found. Please verify domain first.');
+            return;
+        }
+
         setLoading(true);
         try {
-            // Upload metadata to IPFS
-            const metadata = {
-                name: title,
-                description,
-                domain,
-                type: 'website',
-                owner: address,
-                createdAt: new Date().toISOString(),
-            };
-            const metadataUri = await mockUploadToIPFS(metadata);
-
-            // Register IP on Story Protocol
-            const { ipId, txHash } = await mockRegisterIP();
-
-            // Save to storage
+            // Save to local storage for UI display
+            // The IP was already registered on Story Protocol during verification
             storage.saveIPAsset({
                 id: crypto.randomUUID(),
-                ipId,
+                ipId: storyIpId,
                 type: 'website',
                 title,
                 description,
                 domain,
-                metadataUri,
+                metadataUri: '', // Metadata is stored on-chain via Story Protocol
                 ownerAddress: address!,
                 verified: true,
                 createdAt: new Date().toISOString(),
             });
 
-            setRegisteredIpId(ipId);
+            setRegisteredIpId(storyIpId);
             setStep('complete');
-            toast.success('Website registered as IP asset!');
+            toast.success(`Website registered as IP asset!${isSimulated ? ' (Simulated)' : ''}`);
         } catch (error) {
             toast.error('Registration failed. Please try again.');
         } finally {
@@ -390,8 +387,8 @@ const RegisterWebsite = () => {
                                         />
                                     </div>
 
-                                    <Button 
-                                        onClick={handleRegisterDomain} 
+                                    <Button
+                                        onClick={handleRegisterDomain}
                                         disabled={loading || !domain.trim()}
                                         className="w-full"
                                     >
@@ -409,7 +406,7 @@ const RegisterWebsite = () => {
                                             Domain Registered
                                         </h3>
                                         <p className="text-sm text-muted-foreground">
-                                            Your domain <strong>{domain}</strong> has been registered. 
+                                            Your domain <strong>{domain}</strong> has been registered.
                                             Please verify ownership using one of the methods below.
                                         </p>
                                     </div>
@@ -436,7 +433,7 @@ const RegisterWebsite = () => {
                                                 <p className="text-sm text-muted-foreground mb-4">
                                                     Add a TXT record to your domain's DNS settings to verify ownership.
                                                 </p>
-                                                
+
                                                 <div className="space-y-3">
                                                     <div>
                                                         <Label className="text-xs text-muted-foreground">Record Name</Label>
@@ -503,7 +500,7 @@ const RegisterWebsite = () => {
                                                 <p className="text-sm text-muted-foreground mb-4">
                                                     Add this meta tag to your website's HTML <code className="text-primary">&lt;head&gt;</code> section.
                                                 </p>
-                                                
+
                                                 <div className="relative">
                                                     <pre className="p-3 rounded bg-background border border-border overflow-x-auto text-xs font-mono">
                                                         {verificationMethods.metaTag.tag}
@@ -539,7 +536,7 @@ const RegisterWebsite = () => {
                                                 <p className="text-sm text-muted-foreground mb-4">
                                                     Create a verification file at the specified path on your website.
                                                 </p>
-                                                
+
                                                 <div className="space-y-3">
                                                     <div>
                                                         <Label className="text-xs text-muted-foreground">File Path</Label>
@@ -594,9 +591,9 @@ const RegisterWebsite = () => {
                                     </Tabs>
 
                                     <div className="flex gap-3">
-                                        <Button 
-                                            onClick={handleVerify} 
-                                            disabled={verifying} 
+                                        <Button
+                                            onClick={handleVerify}
+                                            disabled={verifying}
                                             className="flex-1"
                                         >
                                             {verifying ? (
@@ -611,9 +608,9 @@ const RegisterWebsite = () => {
                                                 </>
                                             )}
                                         </Button>
-                                        <Button 
-                                            variant="outline" 
-                                            onClick={() => setStep('form')} 
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => setStep('form')}
                                             disabled={verifying}
                                         >
                                             Back
@@ -629,14 +626,25 @@ const RegisterWebsite = () => {
                                         <span className="text-sm">Domain ownership verified for <strong>{domain}</strong></span>
                                     </div>
 
+                                    {storyIpId && (
+                                        <div className="p-4 rounded-lg bg-neon-green/10 border border-neon-green/30">
+                                            <h4 className="font-semibold mb-2 flex items-center gap-2">
+                                                <CheckCircle2 className="h-4 w-4 text-neon-green" />
+                                                Story Protocol IP Registered{isSimulated && ' (Simulated)'}
+                                            </h4>
+                                            <p className="text-xs text-muted-foreground mb-2">IP ID:</p>
+                                            <p className="font-mono text-sm break-all text-primary">{storyIpId}</p>
+                                        </div>
+                                    )}
+
                                     <div className="p-4 rounded-lg bg-secondary border border-border">
-                                        <h3 className="font-semibold mb-4">Register as IP Asset</h3>
+                                        <h3 className="font-semibold mb-4">Complete Registration</h3>
                                         <p className="text-sm text-muted-foreground mb-4">
-                                            Your metadata will be uploaded to IPFS and your website will be registered as a Story Protocol IP asset.
+                                            Add a title and description to save this IP asset to your dashboard.
                                         </p>
                                         <Button onClick={handleRegister} disabled={loading} className="w-full glow-cyan">
                                             {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                                            Register as Story IP
+                                            Save to Dashboard
                                         </Button>
                                     </div>
                                 </div>
