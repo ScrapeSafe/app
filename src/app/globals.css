@@ -343,6 +343,42 @@
   }
 }
 
+@keyframes dot1 {
+  0%, 20% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes dot2 {
+  0%, 20% {
+    opacity: 0;
+  }
+  35%, 65% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes dot3 {
+  0%, 20% {
+    opacity: 0;
+  }
+  50%, 80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 /* Scrollbar Styling */
 ::-webkit-scrollbar {
   width: 8px;

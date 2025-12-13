@@ -112,6 +112,21 @@ export default {
           "0%, 100%": { boxShadow: "0 0 5px hsl(var(--neon-cyan) / 0.5), 0 0 20px hsl(var(--neon-cyan) / 0.3)" },
           "50%": { boxShadow: "0 0 20px hsl(var(--neon-cyan) / 0.8), 0 0 40px hsl(var(--neon-cyan) / 0.5)" },
         },
+        "dot1": {
+          "0%, 20%": { opacity: "0" },
+          "50%": { opacity: "1" },
+          "100%": { opacity: "0" },
+        },
+        "dot2": {
+          "0%, 20%": { opacity: "0" },
+          "35%, 65%": { opacity: "1" },
+          "100%": { opacity: "0" },
+        },
+        "dot3": {
+          "0%, 20%": { opacity: "0" },
+          "50%, 80%": { opacity: "1" },
+          "100%": { opacity: "0" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -122,6 +137,9 @@ export default {
         "fade-in": "fade-in 0.5s ease-out",
         "slide-up": "slide-up 0.5s ease-out",
         "glow-pulse": "glow-pulse 2s ease-in-out infinite",
+        "dot1": "dot1 1.4s infinite",
+        "dot2": "dot2 1.4s infinite",
+        "dot3": "dot3 1.4s infinite",
       },
       backgroundImage: {
         "shimmer": "linear-gradient(90deg, transparent, hsl(var(--neon-cyan) / 0.1), transparent)",

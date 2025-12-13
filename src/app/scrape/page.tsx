@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, ReactNode } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import {
     Globe, Search, Loader2, Send, Cpu, Wifi, Code,
-    Database, CheckCircle2, XCircle, ChevronDown, ChevronUp, Zap
+    Database, CheckCircle2, XCircle, ChevronDown, ChevronUp, Zap,
+    FileText, Heading, Link as LinkIcon, Image, Tag, List, Eye, EyeOff
 } from 'lucide-react';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
@@ -43,6 +44,14 @@ const ScrapePage = () => {
     ]);
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [expandedData, setExpandedData] = useState(true);
+    const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+        main_content: true,
+        headings: true,
+        post_titles: true,
+        links: true,
+        selectors: false,
+        raw_data: false,
+    });
 
     const togglePrompt = (promptId: string) => {
         if (selectedPrompts.includes(promptId)) {
@@ -213,9 +222,10 @@ const ScrapePage = () => {
                             </div>
 
                             {loading && (
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground font-mono animate-pulse mt-4">
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground font-mono mt-4">
                                     <Wifi className="h-4 w-4 text-primary" />
-                                    <span>Scraping website...</span>
+                                    <span>Scraping website</span>
+                                    <LoadingDots />
                                 </div>
                             )}
                         </div>
@@ -275,63 +285,209 @@ const ScrapePage = () => {
                                         </div>
                                     </div>
 
-                                    {/* Scraped Data */}
-                                    <div className="card-cyber rounded-xl bg-card border border-border overflow-hidden">
-                                        <div
-                                            className="flex items-center justify-between p-4 border-b border-border cursor-pointer hover:bg-surface/50 transition-colors"
-                                            onClick={() => setExpandedData(!expandedData)}
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <div className="p-2 rounded-lg bg-primary/10">
-                                                    <Database className="h-4 w-4 text-primary" />
-                                                </div>
-                                                <span className="font-semibold">Scraped Data</span>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <Badge variant="outline">
-                                                    <Code className="h-3 w-3 mr-1" />
-                                                    JSON
-                                                </Badge>
-                                                {expandedData ? (
-                                                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                                                ) : (
-                                                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        {expandedData && (
-                                            <div className="p-4 overflow-x-auto">
-                                                <pre className="font-mono text-sm text-foreground whitespace-pre-wrap">
-                                                    {JSON.stringify(result.data, null, 2)}
-                                                </pre>
-                                            </div>
-                                        )}
-                                    </div>
-
                                     {/* Quick Stats */}
                                     {result.data && (
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                            {Object.keys(result.data).slice(0, 4).map((key) => {
-                                                const value = result.data[key];
-                                                const count = Array.isArray(value) ? value.length : (typeof value === 'string' ? 1 : 0);
-                                                return (
-                                                    <div key={key} className="card-cyber rounded-xl p-4 bg-card border border-border">
-                                                        <div className="flex items-center gap-2 mb-2">
-                                                            <Zap className="h-4 w-4 text-primary" />
-                                                            <span className="text-xs font-mono text-muted-foreground">{key}</span>
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                                            {(() => {
+                                                const stats = [];
+                                                if (result.data.context?.main_content) {
+                                                    stats.push({ key: 'main_content', label: 'Content', count: result.data.context.main_content.length, icon: FileText, color: 'text-primary' });
+                                                }
+                                                if (result.data.context?.headings) {
+                                                    stats.push({ key: 'headings', label: 'Headings', count: result.data.context.headings.length, icon: Heading, color: 'text-accent' });
+                                                }
+                                                if (result.data.context?.post_titles) {
+                                                    stats.push({ key: 'post_titles', label: 'Titles', count: result.data.context.post_titles.length, icon: Tag, color: 'text-neon-green' });
+                                                }
+                                                if (result.data.link) {
+                                                    stats.push({ key: 'links', label: 'Links', count: result.data.link.length, icon: LinkIcon, color: 'text-neon-purple' });
+                                                }
+                                                return stats.slice(0, 4).map((stat) => {
+                                                    const Icon = stat.icon;
+                                                    return (
+                                                        <div key={stat.key} className="card-cyber rounded-xl p-4 bg-card border border-border">
+                                                            <div className="flex items-center gap-2 mb-2">
+                                                                <Icon className={`h-4 w-4 ${stat.color}`} />
+                                                                <span className="text-xs font-mono text-muted-foreground">{stat.label}</span>
+                                                            </div>
+                                                            <div className="font-display text-2xl font-bold">
+                                                                {stat.count}
+                                                            </div>
+                                                            <div className="text-xs text-muted-foreground">
+                                                                items extracted
+                                                            </div>
                                                         </div>
-                                                        <div className="font-display text-2xl font-bold">
-                                                            {count}
-                                                        </div>
-                                                        <div className="text-xs text-muted-foreground">
-                                                            {Array.isArray(value) ? 'items' : 'value'}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
+                                                    );
+                                                });
+                                            })()}
                                         </div>
                                     )}
+
+                                    {/* Main Content Section */}
+                                    {result.data?.context?.main_content && result.data.context.main_content.length > 0 && (
+                                        <SectionCard
+                                            title="Main Content"
+                                            icon={FileText}
+                                            iconColor="text-primary"
+                                            count={result.data.context.main_content.length}
+                                            expanded={expandedSections.main_content}
+                                            onToggle={() => setExpandedSections({ ...expandedSections, main_content: !expandedSections.main_content })}
+                                        >
+                                            <div className="space-y-3">
+                                                {result.data.context.main_content.map((content: string, idx: number) => (
+                                                    <div key={idx} className="p-4 rounded-lg bg-surface/50 border border-border/50 hover:border-primary/30 transition-colors">
+                                                        <p className="text-sm leading-relaxed text-foreground">{content}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </SectionCard>
+                                    )}
+
+                                    {/* Headings Section */}
+                                    {result.data?.context?.headings && result.data.context.headings.length > 0 && (
+                                        <SectionCard
+                                            title="Headings"
+                                            icon={Heading}
+                                            iconColor="text-accent"
+                                            count={result.data.context.headings.length}
+                                            expanded={expandedSections.headings}
+                                            onToggle={() => setExpandedSections({ ...expandedSections, headings: !expandedSections.headings })}
+                                        >
+                                            <div className="space-y-2">
+                                                {result.data.context.headings.map((heading: string, idx: number) => (
+                                                    <div key={idx} className="p-3 rounded-lg bg-surface/50 border border-border/50 hover:border-accent/30 transition-colors">
+                                                        <h3 className="font-display font-semibold text-accent">{heading}</h3>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </SectionCard>
+                                    )}
+
+                                    {/* Post Titles Section */}
+                                    {result.data?.context?.post_titles && result.data.context.post_titles.length > 0 && (
+                                        <SectionCard
+                                            title="Post Titles"
+                                            icon={Tag}
+                                            iconColor="text-neon-green"
+                                            count={result.data.context.post_titles.length}
+                                            expanded={expandedSections.post_titles}
+                                            onToggle={() => setExpandedSections({ ...expandedSections, post_titles: !expandedSections.post_titles })}
+                                        >
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                {result.data.context.post_titles.map((title: string, idx: number) => (
+                                                    <div key={idx} className="p-3 rounded-lg bg-surface/50 border border-border/50 hover:border-neon-green/30 transition-colors">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-neon-green" />
+                                                            <span className="text-sm font-medium">{title}</span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </SectionCard>
+                                    )}
+
+                                    {/* Links Section */}
+                                    {result.data?.link && result.data.link.length > 0 && (
+                                        <SectionCard
+                                            title="Links & Images"
+                                            icon={LinkIcon}
+                                            iconColor="text-neon-purple"
+                                            count={result.data.link.length}
+                                            expanded={expandedSections.links}
+                                            onToggle={() => setExpandedSections({ ...expandedSections, links: !expandedSections.links })}
+                                        >
+                                            <div className="space-y-3">
+                                                {result.data.link.map((link: any, idx: number) => (
+                                                    <div key={idx} className="p-4 rounded-lg bg-surface/50 border border-border/50 hover:border-neon-purple/30 transition-colors">
+                                                        <div className="flex items-start gap-3">
+                                                            {link.type === 'img' && (
+                                                                <div className="p-2 rounded-lg bg-neon-purple/10 flex-shrink-0">
+                                                                    <Image className="h-4 w-4 text-neon-purple" />
+                                                                </div>
+                                                            )}
+                                                            {link.type !== 'img' && (
+                                                                <div className="p-2 rounded-lg bg-primary/10 flex-shrink-0">
+                                                                    <LinkIcon className="h-4 w-4 text-primary" />
+                                                                </div>
+                                                            )}
+                                                            <div className="flex-1 min-w-0">
+                                                                <a
+                                                                    href={link.href}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="text-sm text-primary hover:text-primary/80 break-all font-mono"
+                                                                >
+                                                                    {link.href}
+                                                                </a>
+                                                                {link.text && (
+                                                                    <p className="text-xs text-muted-foreground mt-1">{link.text}</p>
+                                                                )}
+                                                                {link.type && (
+                                                                    <Badge variant="outline" className="mt-2 text-xs">
+                                                                        {link.type}
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </SectionCard>
+                                    )}
+
+                                    {/* Selectors Section */}
+                                    {result.data?.selectors && Object.keys(result.data.selectors).length > 0 && (
+                                        <SectionCard
+                                            title="CSS Selectors"
+                                            icon={Code}
+                                            iconColor="text-muted-foreground"
+                                            count={Object.keys(result.data.selectors).length}
+                                            expanded={expandedSections.selectors}
+                                            onToggle={() => setExpandedSections({ ...expandedSections, selectors: !expandedSections.selectors })}
+                                        >
+                                            <div className="space-y-3">
+                                                {Object.entries(result.data.selectors).map(([key, selectors]: [string, any]) => (
+                                                    <div key={key} className="p-4 rounded-lg bg-surface/50 border border-border/50">
+                                                        <div className="flex items-center gap-2 mb-2">
+                                                            <span className="text-xs font-mono text-muted-foreground uppercase">{key}</span>
+                                                            <Badge variant="outline" className="text-xs">
+                                                                {Array.isArray(selectors) ? selectors.length : 1} selector{Array.isArray(selectors) && selectors.length !== 1 ? 's' : ''}
+                                                            </Badge>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            {Array.isArray(selectors) ? (
+                                                                selectors.map((selector: string, idx: number) => (
+                                                                    <code key={idx} className="block text-xs font-mono text-foreground bg-background p-2 rounded border border-border/50">
+                                                                        {selector}
+                                                                    </code>
+                                                                ))
+                                                            ) : (
+                                                                <code className="block text-xs font-mono text-foreground bg-background p-2 rounded border border-border/50">
+                                                                    {String(selectors)}
+                                                                </code>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </SectionCard>
+                                    )}
+
+                                    {/* Raw Data Section */}
+                                    <SectionCard
+                                        title="Raw JSON Data"
+                                        icon={Database}
+                                        iconColor="text-muted-foreground"
+                                        count={Object.keys(result.data || {}).length}
+                                        expanded={expandedSections.raw_data}
+                                        onToggle={() => setExpandedSections({ ...expandedSections, raw_data: !expandedSections.raw_data })}
+                                    >
+                                        <div className="p-4 rounded-lg bg-surface/50 border border-border/50 overflow-x-auto">
+                                            <pre className="font-mono text-xs text-foreground whitespace-pre-wrap">
+                                                {JSON.stringify(result.data, null, 2)}
+                                            </pre>
+                                        </div>
+                                    </SectionCard>
                                 </>
                             )}
                         </div>
@@ -339,6 +495,73 @@ const ScrapePage = () => {
                 </div>
             </div>
         </Layout>
+    );
+};
+
+// Loading Dots Component
+const LoadingDots = () => {
+    return (
+        <span className="inline-flex gap-0.5 ml-1">
+            <span className="inline-block animate-dot1">.</span>
+            <span className="inline-block animate-dot2">.</span>
+            <span className="inline-block animate-dot3">.</span>
+        </span>
+    );
+};
+
+// Section Card Component
+const SectionCard = ({
+    title,
+    icon: Icon,
+    iconColor,
+    count,
+    expanded,
+    onToggle,
+    children,
+}: {
+    title: string;
+    icon: any;
+    iconColor: string;
+    count: number;
+    expanded: boolean;
+    onToggle: () => void;
+    children: ReactNode;
+}) => {
+    return (
+        <div className="card-cyber rounded-xl bg-card border border-border overflow-hidden">
+            <button
+                type="button"
+                className="w-full flex items-center justify-between p-4 border-b border-border cursor-pointer hover:bg-surface/50 transition-colors text-left"
+                onClick={(e) => {
+                    e.preventDefault();
+                    onToggle();
+                }}
+            >
+                <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${iconColor.replace('text-', 'bg-')}/10`}>
+                        <Icon className={`h-4 w-4 ${iconColor}`} />
+                    </div>
+                    <div>
+                        <span className="font-semibold">{title}</span>
+                        <Badge variant="outline" className="ml-2 text-xs">
+                            {count}
+                        </Badge>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2">
+                    {expanded ? (
+                        <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    )}
+                </div>
+            </button>
+            {expanded && (
+                <div className="p-6">
+                    {children}
+                </div>
+            )}
+        </div>
     );
 };
 
