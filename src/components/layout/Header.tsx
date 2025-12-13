@@ -14,6 +14,7 @@ const navLinks = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/market', label: 'Marketplace' },
   { href: '/bot', label: 'Simulator' },
+  { href: '/scrape', label: 'Scrape' },
   { href: '/my-licenses', label: 'My Licenses' },
 ];
 
@@ -84,8 +85,8 @@ export const Header = () => {
                 </Button>
               </div>
             ) : (
-              <Button 
-                onClick={handleConnect} 
+              <Button
+                onClick={handleConnect}
                 className="glow-cyan font-semibold"
                 disabled={!ready}
               >
